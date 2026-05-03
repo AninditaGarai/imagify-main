@@ -1,6 +1,28 @@
 import userModels from "../models/userModels.js";
 import axios from "axios";
 
+const generateWithClipdrop = async (prompt) => {
+    const response = await axios.post(
+        "https://clipdrop-api.co/text-to-image/v1",
+        { prompt },
+        {
+            headers: {
+                "x-api-key": process.env.CLIPDROP_API,
+                "Content-Type": "application/json"
+            },
+            responseType: "arraybuffer"
+        }
+    );
+
+    return response.data;
+};
+
+const generateWithFallback = async (prompt) => {
+    const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+    const response = await axios.get(fallbackUrl, { responseType: "arraybuffer" });
+    return response.data;
+};
+
 export const generateImage = async (req, res) => {
     try {
         const { userId, prompt } = req.body;
@@ -15,21 +37,20 @@ export const generateImage = async (req, res) => {
             return res.json({ success: false, message: 'Insufficient Credits', creditBalance: user.creditBalance });
         }
 
-        // Make API request to ClipDrop
-        const response = await axios.post(
-            'https://clipdrop-api.co/text-to-image/v1',
-            { prompt },
-            {
-                headers: {
-                    'x-api-key': process.env.CLIPDROP_API,
-                    'Content-Type': 'application/json'
-                },
-                responseType: 'arraybuffer'
+        let imageBuffer;
+        if (process.env.CLIPDROP_API) {
+            try {
+                imageBuffer = await generateWithClipdrop(prompt);
+            } catch (clipdropError) {
+                console.warn("ClipDrop generation failed, using fallback provider:", clipdropError.response?.status || clipdropError.message);
+                imageBuffer = await generateWithFallback(prompt);
             }
-        );
+        } else {
+            imageBuffer = await generateWithFallback(prompt);
+        }
 
         // Convert response to base64
-        const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+        const base64Image = Buffer.from(imageBuffer, 'binary').toString('base64');
         const resultImage = `data:image/png;base64,${base64Image}`;
 
         // Deduct credit and return updated balance
@@ -47,11 +68,16 @@ export const generateImage = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Error generating image:', error.response?.data || error.message);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Server Error',
-            error: error.response?.data || error.message 
+        const statusCode = error.response?.status || 500;
+        const upstreamMessage = typeof error.response?.data === "string"
+            ? error.response.data
+            : error.response?.data?.message;
+        const message = upstreamMessage || error.message || "Image generation failed";
+
+        console.error("Error generating image:", message);
+        res.status(statusCode).json({
+            success: false,
+            message
         });
     }
 };

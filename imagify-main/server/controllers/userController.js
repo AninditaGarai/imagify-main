@@ -4,13 +4,20 @@ import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
 import transactionModel from "../models/transactionModel.js";
 
+const JWT_SECRET = process.env.JWT_SECRET || "dev_jwt_secret";
+
 const registerUser = async (req, res) => {
 
     try{
        
         const {name, email, password} = req.body;
         if(!name || !email || !password){
-            return res.json({sucess:false,message: "Please fill in all fields"});
+            return res.json({success:false,message: "Please fill in all fields"});
+        }
+
+        const existingUser = await userModel.findOne({ email });
+        if (existingUser) {
+            return res.json({ success: false, message: "User already exists" });
         }
 
         const salt =await bcrypt.genSalt(10);
@@ -25,7 +32,7 @@ const registerUser = async (req, res) => {
         const newUser = new userModel(userData);
         const user =await newUser.save()
 
-        const token = jwt.sign({id: user._id }, process.env.JWt_SECRET )
+        const token = jwt.sign({id: user._id }, JWT_SECRET )
 
         res.json({success: true , token,user:{name:user.name}})
 
@@ -44,14 +51,14 @@ const loginUser = async (req,res)=> {
 
 
         if(!user){
-            return res.json({sucess:false,message: "User not found"})
+            return res.json({success:false,message: "User not found"})
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if(isMatch){
 
-            const token = jwt.sign({id: user._id }, process.env.JWT_SECRET )
+            const token = jwt.sign({id: user._id }, JWT_SECRET )
 
             res.json({success: true , token,user:{name:user.name}})
 
@@ -60,7 +67,7 @@ const loginUser = async (req,res)=> {
         }
 
         else{
-            return res.json({sucess:false,message: "Invalid Credentials"})
+            return res.json({success:false,message: "Invalid Credentials"})
 
 
         }
@@ -89,12 +96,16 @@ const userCredits = async (req,res) => {
     }
 
 }
+const getRazorpayInstance = () => {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        throw new Error("Razorpay credentials are missing. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env.");
+    }
 
-// const razorpayInstance = new Razorpay({
-
-//     key_id: process.env.RAZORPAY_KEY_ID,
-//     key_secret: process.env.RAZORPAY_KEY_SECRET
-// });
+    return new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+};
 
 const paymentRazorpay = async (req,res)=>{
 
@@ -154,7 +165,9 @@ const paymentRazorpay = async (req,res)=>{
         }
 
 
-       await razorpayInstance.orders.create(options , (error , order)=>{
+    const razorpayInstance = getRazorpayInstance();
+
+    await razorpayInstance.orders.create(options , (error , order)=>{
 
         if(error){
           console.log(error);

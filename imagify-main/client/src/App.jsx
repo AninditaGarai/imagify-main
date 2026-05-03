@@ -28,8 +28,8 @@ const App = () => {
      { showLogin &&<Login/>}
       <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/Result" element={<Result />} />
-          <Route path="/BuyCreidt" element={<BuyCreidt />} />
+          <Route path="/result" element={<Result />} />
+          <Route path="/buy-credit" element={<BuyCreidt />} />
           
         </Routes> 
        <Footer/>
