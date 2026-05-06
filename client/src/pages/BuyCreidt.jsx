@@ -37,6 +37,7 @@ const BuyCreidt = () => {
 
       if (!user){
         setShowLogin(true)
+        return;
       }
 
       const {data}= await axios.post(backendUrl + '/api/user/pay-razor', {planId},{headers : {token}})

@@ -1,17 +1,18 @@
-import { createContext, useEffect, useState  } from "react";
+import { createContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
 
 
 export const AppConstext = createContext();
 
-const AppConstextProvider = (props , navigate) => {
+const AppConstextProvider = (props) => {
     const [user, setUser] = useState(null);
     const [showLogin, setShowLogin] = useState(false);
     const [token, setToken] = useState(localStorage.getItem("token"));
     const [credit, setCredit] = useState(false);
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
-    // const navigate = useNavigate();
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+    const navigate = useNavigate();
 
 
 
